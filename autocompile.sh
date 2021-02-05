@@ -2,6 +2,48 @@
 LG='\033[1;32m'
 NC='\033[0m' # No Color
 
+# Auto updater, disable with auto_update=0
+currentver=v1.1.0
+auto_update=1
+if [ $auto_update = 1 ]; then
+  echo Checking for newer versions...
+  newestver=$(timeout 1 curl -s https://api.github.com/repos/MichielVerloop/sacAutocompiler/releases/latest \
+    | grep tag_name \
+    | cut -d : -f 2 \
+    | tr -d "\", ")
+  retval=$?
+  # If it didn't time out and the versions don't match, get the newest version.
+  if [[ $newestver != "" ]]; then
+    if [[ "$(printf '%s\n' "$newestver" "$currentver" | sort -V | head -n1)" \
+      != "$newestver" ]]; then 
+      echo Found a newer version, starting download.
+      curl -s https://api.github.com/repos/MichielVerloop/sacAutocompiler/releases/latest \
+      | grep "browser_download_url" \
+      | cut -d : -f 2,3 \
+      | tr -d \" \
+      | wget -qi - -O autocompile.sh
+      chmod +x autocompile.sh
+      echo Download finished. Restarting autocompile.sh...
+      sleep 1
+      exec ./autocompile.sh
+    fi
+    echo This version is up-to-date. Continuing.
+    sleep 1
+  else # newestver = ""
+    # Ideally we wouldn't make another request here, but saving the first 
+    # response breaks grep because we lose the line breaks.
+    if [[ $(timeout 1 curl -s https://api.github.com/repos/MichielVerloop/sacAutocompiler/releases/latest | grep "API rate limit exceeded" ) != "" ]]; then
+        echo API rate limit exceeded. Continuing without updating.
+    else 
+      echo Version checking timed out. Continuing without updating.
+    fi
+    sleep 2
+  fi
+else
+  echo Warning: auto-update is disabled.
+  sleep 1
+fi
+
 clear
 # Install inotify-tools if it is not yet installed
 dpkg -s inotify-tools > /dev/null 2>&1 # hide stdout and stderr 
