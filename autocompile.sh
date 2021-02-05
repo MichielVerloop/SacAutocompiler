@@ -1,13 +1,48 @@
 #!/bin/bash
-LG='\033[1;32m'
+
+## Features
+# Automatically compiles .sac files in its directory and subdirectories.
+# Runs the compiled file if the compilation is succesful.
+# Automatically updates to a newer version of the script if available.
+# Can optionally provide a specific directory to set up watches for.
+
+## Requirements
+# A working version of the sac compiler on your path
+# The tool inotify-tools should be installed. It will automatically install 
+#   if it is not yet installed.
+
+# You can disable automatic updates by setting auto_update=0
+auto_update=1
+currentver=v1.2.0
+RE='\u001b[31m' # Red
+LG='\033[1;32m' # Light green
 NC='\033[0m' # No Color
 
+# Define usage
+usage()
+{
+  echo "Usage: $0 [-d directory]"
+  exit 2
+}
+
+
+# Handle launch arguments
+root_listen_path=$PWD
+
+while getopts 'd:?h' c
+do
+  case $c in
+    d) root_listen_path=$OPTARG;;
+    h|?) usage ;; esac
+done
+
+[ ! -d $root_listen_path ] && echo Argument d: \"$root_listen_path\" is not a valid path. && usage
+
+
 # Auto updater, disable with auto_update=0
-currentver=v1.1.0.1
-auto_update=1
 if [ $auto_update = 1 ]; then
   echo Checking for newer versions...
-  newestver=$(timeout 1 curl -s https://api.github.com/repos/MichielVerloop/sacAutocompiler/releases/latest \
+  newestver=$(timeout 1 curl -s https://api.github.com/repos/MichielVerloop/SacAutocompiler/releases/latest \
     | grep tag_name \
     | cut -d : -f 2 \
     | tr -d "\", ")
@@ -17,7 +52,7 @@ if [ $auto_update = 1 ]; then
     if [[ "$(printf '%s\n' "$newestver" "$currentver" | sort -V | head -n1)" \
       != "$newestver" ]]; then 
       echo Found a newer version, starting download.
-      curl -s https://api.github.com/repos/MichielVerloop/sacAutocompiler/releases/latest \
+      curl -s https://api.github.com/repos/MichielVerloop/SacAutocompiler/releases/latest \
       | grep "browser_download_url" \
       | cut -d : -f 2,3 \
       | tr -d \" \
@@ -59,8 +94,8 @@ if [ $ret -ne 0 ] ; then
 fi
 
 # Get notified of all events in this folder and the underlying folders.
-echo -e ${LG}Now detecting file changes in $PWD.${NC}
-2> /dev/null inotifywait -r -e close_write,moved_to,create -m . |
+echo -e ${LG}Now detecting file changes in $root_listen_path.${NC}
+2> /dev/null inotifywait -r -e close_write,moved_to,create -m $root_listen_path |
 while read -r directory events filename; do
   if [[ "$filename" = *".sac" ]]; then
     clear
@@ -71,6 +106,13 @@ while read -r directory events filename; do
     if [ $ret -eq 0 ] ; then
       echo -e ${LG}Compilation succesful: running a.out.${NC}
       ./a.out
+      if [ $ret -eq 0 ] ; then
+        echo -e ${LG}Run succeeded.${NC}
+      else
+        echo -e ${RE}Run failed.${NC}
+      fi
+    else
+      echo -e ${RE}Compilation failed.
     fi
   fi
 done
