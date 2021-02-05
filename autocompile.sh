@@ -3,7 +3,7 @@ LG='\033[1;32m'
 NC='\033[0m' # No Color
 
 # Auto updater, disable with auto_update=0
-currentver=v1.1.0
+currentver=v1.1.0.1
 auto_update=1
 if [ $auto_update = 1 ]; then
   echo Checking for newer versions...
@@ -33,7 +33,7 @@ if [ $auto_update = 1 ]; then
     # Ideally we wouldn't make another request here, but saving the first 
     # response breaks grep because we lose the line breaks.
     if [[ $(timeout 1 curl -s https://api.github.com/repos/MichielVerloop/sacAutocompiler/releases/latest | grep "API rate limit exceeded" ) != "" ]]; then
-        echo API rate limit exceeded. Continuing without updating.
+      echo API rate limit exceeded. Continuing without updating.
     else 
       echo Version checking timed out. Continuing without updating.
     fi
