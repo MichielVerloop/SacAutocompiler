@@ -13,7 +13,7 @@
 
 # You can disable automatic updates by setting auto_update=0
 auto_update=1
-currentver=v1.2.2
+currentver=v1.2.3
 RE='\u001b[31m' # Red
 LG='\033[1;32m' # Light green
 NC='\033[0m' # No Color
@@ -32,11 +32,11 @@ root_listen_path=$PWD
 while getopts 'd:?h' c
 do
   case $c in
-    d) root_listen_path=$OPTARG;;
+    d) root_listen_path="$OPTARG";;
     h|?) usage ;; esac
 done
 
-[ ! -d $root_listen_path ] && echo Argument d: \"$root_listen_path\" is not a valid path. && usage
+[ ! -d "$root_listen_path" ] && echo Argument d: \"$root_listen_path\" is not a valid path. && usage
 
 
 # Auto updater, disable with auto_update=0
@@ -98,24 +98,28 @@ fi
 LastRun=0
 # Get notified of all events in this folder and the underlying folders.
 echo -e ${LG}Now detecting file changes in $root_listen_path.${NC}
-2> /dev/null inotifywait -r -e create,modify,moved_to,close_write -m $root_listen_path |
-while read -r directory events filename; do
-  if [[ "$filename" = *".sac" && $LastRun -lt $(date +"%s") ]]; then
+2> /dev/null inotifywait -r -e create,modify,moved_to,close_write -m --format "%e %w%f" "$root_listen_path" |
+while read -r event filepath; do
+  if [[ "$filepath" = *".sac" && $LastRun -lt $(date +"%s") ]]; then
     clear
-    filepath=$directory$filename # Necessary to access the recursive files properly.
-    echo -e ${LG}Save detected: compiling $filepath.${NC}
-    sac2c -check tc $filepath 
-    ret=$?
-    if [ $ret -eq 0 ] ; then
-      echo -e ${LG}Compilation succesful: running a.out.${NC}
-      ./a.out
-      if [ $ret -eq 0 ] ; then
-        echo -e ${LG}Run succeeded.${NC}
-      else
-        echo -e ${RE}Run failed.${NC}
-      fi
+    echo -e ${LG}Save detected: compiling "$filepath".${NC}
+    echo "$filepath" | grep " " 1>/dev/null
+    if [[ $? -eq 0 ]]; then
+      echo "Sac cannot handle paths with spaces in them. Ignoring this file."
     else
-      echo -e ${RE}Compilation failed.
+      sac2c -check tc "$filepath" 
+      ret=$?
+      if [ $ret -eq 0 ] ; then
+        echo -e ${LG}Compilation succesful: running a.out.${NC}
+        ./a.out
+        if [ $ret -eq 0 ] ; then
+          echo -e ${LG}Run succeeded.${NC}
+        else
+          echo -e ${RE}Run failed.${NC}
+        fi
+      else
+        echo -e ${RE}Compilation failed.
+      fi
     fi
     LastRun=$(date +"%s")
   fi
