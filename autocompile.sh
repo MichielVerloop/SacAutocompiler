@@ -13,7 +13,7 @@
 
 # You can disable automatic updates by setting auto_update=0
 auto_update=1
-currentver=v1.2.1
+currentver=v1.2.2
 RE='\u001b[31m' # Red
 LG='\033[1;32m' # Light green
 NC='\033[0m' # No Color
@@ -93,11 +93,14 @@ if [ $ret -ne 0 ] ; then
   clear
 fi
 
+# The purpose of last run is to prevent compilation within 1 second after finishing the last call
+# This is useful for when editors trigger inotifywait twice while saving.
+LastRun=0
 # Get notified of all events in this folder and the underlying folders.
 echo -e ${LG}Now detecting file changes in $root_listen_path.${NC}
 2> /dev/null inotifywait -r -e create,modify,moved_to,close_write -m $root_listen_path |
 while read -r directory events filename; do
-  if [[ "$filename" = *".sac" ]]; then
+  if [[ "$filename" = *".sac" && $LastRun -lt $(date +"%s") ]]; then
     clear
     filepath=$directory$filename # Necessary to access the recursive files properly.
     echo -e ${LG}Save detected: compiling $filepath.${NC}
@@ -114,5 +117,6 @@ while read -r directory events filename; do
     else
       echo -e ${RE}Compilation failed.
     fi
+    LastRun=$(date +"%s")
   fi
 done
